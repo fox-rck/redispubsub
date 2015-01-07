@@ -22,7 +22,15 @@ $(document).ready(function () {
      initializes Socket.io and the entire app.
      */
     $('#ask a').click(function () {
-        join($('#ask input').val());
+        var name = $('#ask input').val();
+          $.post('/user', {"user":name})
+            .success(function (data) {
+                // send join message
+                join(data);
+                //socket.emit('join', JSON.stringify({}));
+            }).error(function () {
+                console.log("error");
+            });
     });
 
     function join(name) {
@@ -83,14 +91,14 @@ $(document).ready(function () {
         /*
          When the user Logs in, send a HTTP POST to server w/ user name.
          */
-        $.post('/user', {"user":name})
-            .success(function () {
-                // send join message
-                socket.emit('join', JSON.stringify({}));
-            }).error(function () {
-                console.log("error");
-            });
-
+        // $.post('/user', {"user":name})
+        //     .success(function () {
+        //         // send join message
+        //         socket.emit('join', JSON.stringify({}));
+        //     }).error(function () {
+        //         console.log("error");
+        //     });
+        socket.emit('join', JSON.stringify({}));
         var container = $('div#msgs');
 
         /*

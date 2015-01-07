@@ -2,7 +2,9 @@ var express = require('express')
     , routes = require('./routes')
     , http = require('http')
     , path = require('path')
-    , redis = require('redis');
+    , redis = require('redis')
+    , methodOverride = require('method-override');
+    //, bodyParser = require('body-parser');
 
 /*
  Setup Express & Socket.io
@@ -13,16 +15,17 @@ var io = require('socket.io').listen(server);
 
 
 //Set xhr-polling as WebSocket is not supported by CF
-io.set("transports", ["xhr-polling"]);
+//io.set("transports", ["xhr-polling"]);
 
 //Set Socket.io's log level to 1 (info). Default is 3 (debugging)
-io.set('log level', 1);
+//io.set('log level', 1);
 
 
 /*
  Also use Redis for Session Store. Redis will keep all Express sessions in it.
  */
-var RedisStore = require('connect-redis')(express),
+var session = require('express-session'), 
+    RedisStore = require('connect-redis')(session),
     rClient = redis.createClient(),
     sessionStore = new RedisStore({client:rClient});
 
@@ -32,15 +35,16 @@ var RedisStore = require('connect-redis')(express),
 
 var cookieParser = express.cookieParser('your secret here');
 
-app.configure(function () {
+// all environments
+    app.set('title', 'blerpiT v2.0');
     app.set('port', process.env.PORT || 3000);
     app.set('views', __dirname + '/views');
     app.set('view engine', 'ejs');
     app.use(express.favicon());
     app.use(express.logger('dev'));
-    app.use(express.bodyParser());
-    app.use(express.methodOverride());
-
+    app.use(express.urlencoded());
+    app.use(express.json());
+    app.use(methodOverride());
     /*
      Use cookieParser and session middlewares together.
      By default Express/Connect app creates a cookie by name 'connect.sid'.But to scale Socket.io app,
@@ -53,11 +57,16 @@ app.configure(function () {
 
     app.use(app.router);
     app.use(express.static(path.join(__dirname, 'public')));
-});
-
-app.configure('development', function () {
+// development only
+if ('development' == app.get('env')) {
+ // app.set('db uri', 'localhost/dev');
     app.use(express.errorHandler());
-});
+}
+
+// production only
+if ('production' == app.get('env')) {
+ // app.set('db uri', 'n.n.n.n/prod');
+}
 
 app.get('/', routes.index);
 
@@ -71,8 +80,10 @@ app.get('/logout', function(req, res) {
  in Express session (which inturn is stored in Redis)
  */
 app.post('/user', function (req, res) {
-    req.session.user = req.body.user;
-    res.json({"error":""});
+    var user = req.param('user');
+    //TODO: populate user object from DB... will need :id | :name | :pic
+    req.session.user = user;
+    res.json(user);
 });
 
 /*
@@ -92,14 +103,16 @@ var pub = redis.createClient();
 sub.subscribe('chat');
 
 sessionSockets.on('connection', function (err, socket, session) {
-    if(!session.user) return;
-
+     console.log("connection")
+     if(!session.user) return;
+   
     /*
      When the user sends a chat message, publish it to everyone (including myself) using
      Redis' 'pub' client we created earlier.
      Notice that we are getting user's name from session.
      */
     socket.on('chat', function (data) {
+        console.log("chat")
         var msg = JSON.parse(data);
         var reply = JSON.stringify({action:'message', user:session.user, msg:msg.msg });
         pub.publish('chat', reply);
@@ -111,6 +124,7 @@ sessionSockets.on('connection', function (err, socket, session) {
      Notice that we are getting user's name from session.
      */
     socket.on('join', function () {
+        console.log("join"+session.user)
         var reply = JSON.stringify({action:'control', user:session.user, msg:' joined the channel' });
         pub.publish('chat', reply);
     });
@@ -127,6 +141,6 @@ sessionSockets.on('connection', function (err, socket, session) {
 
 
 server.listen(app.get('port'), function () {
-    var serverName = process.env.VCAP_APP_HOST ? process.env.VCAP_APP_HOST + ":" + process.env.VCAP_APP_PORT : 'localhost:3000';
+    var serverName = process.env.VCAP_APP_HOST ? process.env.VCAP_APP_HOST + ":" +(process.env.PORT || 3000) : 'localhost:'+(process.env.PORT || 3000);
     console.log("Express server listening on " + serverName);
 });

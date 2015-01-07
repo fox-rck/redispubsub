@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="/client.css"/>
 </head>
 <body>
-<b>Server: </b><%= server %>
+<b>ServerPort: </b><%= (process.env.PORT || 3000)%>
 <br/>
 <% if(user) { %>
 <b>User: </b> <label id="user"><%= user %></label> <a href="/logout" style='color:blue;text-decoration: underline'> Log out</a>
@@ -18,7 +18,7 @@
 <div id="channel" class="bordered" style="display: none;">
 
     <div id="msgs">
-        <h4>Server: <%= server %></h4>
+        <h4>Server Port: <%= (process.env.PORT || 3000) %></h4>
 
         <ul>
             <li class="message" style="display: none">
